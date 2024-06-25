@@ -1,20 +1,24 @@
-from app.data_sourcing import Data_Sourcing, data_update
-from app.indicator_analysis import Indications
-from app.graph import Visualization
-from tensorflow.keras.models import load_model
-import streamlit as st 
 import gc
 
+import streamlit as st
+from tensorflow.keras.models import load_model
+
+from app.data_sourcing import Data_Sourcing
+from app.graph import Visualization
+from app.indicator_analysis import Indications
+
 gc.collect()
-#data_update()
+
+
+# data_update()
 
 def main(app_data):
-    st.set_page_config(layout = "wide")
+    st.set_page_config(layout="wide")
     indication = 'Predicted'
 
     st.sidebar.subheader('Asset:')
     asset_options = sorted(['Cryptocurrency', 'Index Fund', 'Forex', 'Futures & Commodities', 'Stocks'])
-    asset = st.sidebar.selectbox('', asset_options, index = 4)
+    asset = st.sidebar.selectbox('', asset_options, index=4)
 
     if asset in ['Index Fund', 'Forex', 'Futures & Commodities', 'Stocks']:
         exchange = 'Yahoo! Finance'
@@ -22,8 +26,8 @@ def main(app_data):
 
         if asset == 'Stocks':
             st.sidebar.subheader(f'Stock Index:')
-            stock_indexes  = app_data.stock_indexes
-            market = st.sidebar.selectbox('', stock_indexes, index = 11)
+            stock_indexes = app_data.stock_indexes
+            market = st.sidebar.selectbox('', stock_indexes, index=11)
             app_data.market_data(market)
             assets = app_data.stocks
             asset = f'{market} Companies'
@@ -33,7 +37,7 @@ def main(app_data):
             assets = app_data.futures
         elif asset == 'Forex':
             assets = app_data.forex
-        
+
         st.sidebar.subheader(f'{asset}:')
         equity = st.sidebar.selectbox('', assets)
 
@@ -47,42 +51,48 @@ def main(app_data):
             currency = app_data.df_forex[(app_data.df_forex['Currencies'] == equity)]['Currency'].unique()[0]
             market = app_data.df_forex[(app_data.df_forex['Currencies'] == equity)]['Market'].unique()[0]
         elif asset == f'{market} Companies':
-            currency = app_data.df_stocks[((app_data.df_stocks['Company'] == equity) & (app_data.df_stocks['Index Fund'] == market))]['Currency'].unique()[0]
+            currency = app_data.df_stocks[
+                ((app_data.df_stocks['Company'] == equity) & (app_data.df_stocks['Index Fund'] == market))][
+                'Currency'].unique()[0]
             asset = 'Stock'
-        
+
         st.sidebar.subheader('Interval:')
-        interval = st.sidebar.selectbox('', ('5 Minute', '15 Minute', '30 Minute', '1 Hour', '1 Day', '1 Week'), index = 4)
-        volitility_index = 0     
+        interval = st.sidebar.selectbox('', ('5 Minute', '15 Minute', '30 Minute', '1 Hour', '1 Day', '1 Week'),
+                                        index=4)
+        volitility_index = 0
 
     elif asset in ['Cryptocurrency']:
         exchange = 'Binance'
         app_data.exchange_data(exchange)
         markets = app_data.markets
-        
+
         st.sidebar.subheader('Market:')
-        market = st.sidebar.selectbox('', markets, index = 3)
+        market = st.sidebar.selectbox('', markets, index=3)
         app_data.market_data(market)
         assets = app_data.assets
         currency = app_data.currency
-        
+
         st.sidebar.subheader('Crypto:')
         equity = st.sidebar.selectbox('', assets)
 
         st.sidebar.subheader('Interval:')
-        interval = st.sidebar.selectbox('', ('1 Minute', '3 Minute', '5 Minute', '15 Minute', '30 Minute', '1 Hour', '6 Hour', '12 Hour', '1 Day', '1 Week'), index = 8)
+        interval = st.sidebar.selectbox('', (
+            '1 Minute', '3 Minute', '5 Minute', '15 Minute', '30 Minute', '1 Hour', '6 Hour', '12 Hour', '1 Day',
+            '1 Week'),
+                                        index=8)
 
-        volitility_index = 2 
-        
+        volitility_index = 2
+
     label = asset
-        
+
     st.sidebar.subheader('Trading Volatility:')
-    risk = st.sidebar.selectbox('', ('Low', 'Medium', 'High'), index = volitility_index)
+    risk = st.sidebar.selectbox('', ('Low', 'Medium', 'High'), index=volitility_index)
 
     st.title(f'Automated Technical Analysis.')
     st.subheader(f'{label} Data Sourced from {exchange}.')
     st.info(f'Predicting...')
-    
-    future_price = 1   
+
+    future_price = 1
     analysis = Visualization(exchange, interval, equity, indication, action_model, price_model, market)
     analysis_day = Indications(exchange, '1 Day', equity, market)
     requested_date = analysis.df.index[-1]
@@ -91,9 +101,9 @@ def main(app_data):
     requested_prediction_price = float(analysis.requested_prediction_price)
     requested_prediction_action = analysis.requested_prediction_action
 
-    risks = {'Low': [analysis_day.df['S1'].values[-1], analysis_day.df['R1'].values[-1]], 
-            'Medium': [analysis_day.df['S2'].values[-1], analysis_day.df['R2'].values[-1]],   
-            'High': [analysis_day.df['S3'].values[-1], analysis_day.df['R3'].values[-1]],}
+    risks = {'Low': [analysis_day.df['S1'].values[-1], analysis_day.df['R1'].values[-1]],
+             'Medium': [analysis_day.df['S2'].values[-1], analysis_day.df['R2'].values[-1]],
+             'High': [analysis_day.df['S3'].values[-1], analysis_day.df['R3'].values[-1]], }
     buy_price = float(risks[risk][0])
     sell_price = float(risks[risk][1])
 
@@ -121,7 +131,7 @@ def main(app_data):
     else:
         present_statement_prefix = ''
         present_statement_suffix = ''
-                
+
     accuracy_threshold = {analysis.score_action: 75., analysis.score_price: 75.}
     confidence = dict()
     for score, threshold in accuracy_threshold.items():
@@ -141,26 +151,30 @@ def main(app_data):
     st.markdown(f'**Prediction Date & Time (UTC):** {str(requested_date)}.')
     st.markdown(f'**Current Price:** {currency} {current_price}.')
     st.markdown(f'**{interval} Price Change:** {change_display}.')
-    st.markdown(f'**Recommended Trading Action:** You should **{requested_prediction_action.lower()}** {present_statement_prefix} this {label.lower()[:6]}{present_statement_suffix}. {str(confidence[analysis.score_action])}')
-    st.markdown(f'**Estimated Forecast Price:** The {label.lower()[:6]} {asset_suffix} for **{equity}** is estimated to be **{currency} {requested_prediction_price}** in the next **{forcast_prefix} {forcast_suffix}**. {str(confidence[analysis.score_price])}')
+    st.markdown(
+        f'**Recommended Trading Action:** You should **{requested_prediction_action.lower()}** {present_statement_prefix} this {label.lower()[:6]}{present_statement_suffix}. {str(confidence[analysis.score_action])}')
+    st.markdown(
+        f'**Estimated Forecast Price:** The {label.lower()[:6]} {asset_suffix} for **{equity}** is estimated to be **{currency} {requested_prediction_price}** in the next **{forcast_prefix} {forcast_suffix}**. {str(confidence[analysis.score_price])}')
     if requested_prediction_action == 'Hold':
-        st.markdown(f'**Recommended Trading Margins:** You should consider buying more **{equity}** {label.lower()[:6]} at **{currency} {buy_price}** and sell it at **{currency} {sell_price}**.')
+        st.markdown(
+            f'**Recommended Trading Margins:** You should consider buying more **{equity}** {label.lower()[:6]} at **{currency} {buy_price}** and sell it at **{currency} {sell_price}**.')
 
     prediction_fig = analysis.prediction_graph(asset)
-    
+
     st.success(f'Historical {label[:6]} Price Action.')
-    st.plotly_chart(prediction_fig, use_container_width = True)
+    st.plotly_chart(prediction_fig, use_container_width=True)
 
     technical_analysis_fig = analysis.technical_analysis_graph()
-    st.plotly_chart(technical_analysis_fig, use_container_width = True) 
-    
+    st.plotly_chart(technical_analysis_fig, use_container_width=True)
+
 
 if __name__ == '__main__':
     import warnings
     import gc
-    warnings.filterwarnings("ignore") 
+
+    warnings.filterwarnings("ignore")
     gc.collect()
     action_model = load_model("models/action_prediction_model.h5")
     price_model = load_model("models/price_prediction_model.h5")
     app_data = Data_Sourcing()
-    main(app_data = app_data)
+    main(app_data=app_data)
